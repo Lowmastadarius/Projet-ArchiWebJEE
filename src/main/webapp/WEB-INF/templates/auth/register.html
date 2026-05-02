@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Inscription - Suko</title>
+    <link rel="stylesheet" th:href="@{/css/game-theme.css}">
+</head>
+<body>
+<main class="page">
+    <section class="card auth-card">
+        <h1 class="title">Inscription</h1>
+        <p class="subtitle">Cree ton profil joueur pour entrer dans le classement.</p>
+        <p class="message message-error" th:if="${errorMessage}" th:text="${errorMessage}"></p>
+        <form th:action="@{/auth/register}" th:object="${registerRequest}" method="post">
+            <div class="form-field">
+                <label>Nom d'utilisateur</label>
+                <input type="text" th:field="*{username}">
+                <small class="message message-error" th:if="${#fields.hasErrors('username')}" th:errors="*{username}"></small>
+            </div>
+            <div class="form-field">
+                <label>Mot de passe</label>
+                <input type="password" th:field="*{password}">
+                <small class="message message-error" th:if="${#fields.hasErrors('password')}" th:errors="*{password}"></small>
+            </div>
+            <button class="btn" type="submit">S'inscrire</button>
+        </form>
+        <p class="muted"><a th:href="@{/auth/login}">Retour connexion</a></p>
+    </section>
+</main>
+</body>
+</html>

@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Suko Puzzle</title>
+    <link rel="stylesheet" th:href="@{/css/game-theme.css}">
+    <style>
+        .game-shell {
+            display: grid;
+            grid-template-columns: minmax(500px, 1fr) 420px;
+            gap: 16px;
+            align-items: start;
+        }
+        .grid-table {
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        .grid-table td {
+            border: 1px solid rgba(28, 43, 74, 0.22);
+            width: 108px;
+            height: 108px;
+            position: relative;
+            text-align: center;
+            vertical-align: middle;
+            cursor: pointer;
+        }
+        .grid-cell.active-cell {
+            outline: 3px solid #3453df;
+            outline-offset: -3px;
+        }
+        .cell-value {
+            font-size: 32px;
+            font-weight: 700;
+            color: #18203d;
+            user-select: none;
+        }
+        .grid-wrapper {
+            position: relative;
+            display: inline-block;
+        }
+        .puzzle-workspace {
+            display: flex;
+            align-items: flex-start;
+            gap: 14px;
+        }
+        .digit-palette {
+            display: grid;
+            grid-template-columns: repeat(3, 54px);
+            gap: 8px;
+            align-content: start;
+            margin-top: 10px;
+        }
+        .digit-btn {
+            width: 54px;
+            height: 54px;
+            border: 1px solid rgba(28, 43, 74, 0.25);
+            border-radius: 10px;
+            background: #ffffffcc;
+            font-size: 22px;
+            font-weight: 700;
+            color: #22335b;
+            cursor: pointer;
+        }
+        .digit-btn:hover {
+            background: #eef3ff;
+        }
+        .digit-btn.selected-digit {
+            border-color: #3453df;
+            box-shadow: 0 0 0 2px rgba(52, 83, 223, 0.2);
+            background: #dfe7ff;
+        }
+        .clear-btn {
+            grid-column: span 3;
+            width: 100%;
+            height: 44px;
+            border-radius: 10px;
+            border: 1px solid rgba(28, 43, 74, 0.25);
+            background: #fff;
+            color: #22335b;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .circle-overlay-layer {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            z-index: 2;
+        }
+        .solution-circle {
+            position: absolute;
+            border: 2px solid #222;
+            border-radius: 50%;
+            box-sizing: border-box;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: bold;
+            color: #222;
+            opacity: 1;
+            transition: background-color 0.2s ease, border-color 0.2s ease;
+            text-align: center;
+            white-space: nowrap;
+            line-height: 1;
+            padding: 0 4px;
+            overflow: hidden;
+        }
+        .game-panel {
+            padding: 19px;
+        }
+        .legend {
+            margin: 8px 0;
+            padding-left: 19px;
+        }
+        .legend li {
+            margin-bottom: 6px;
+        }
+        .color-swatch {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 1px solid #555;
+            margin-right: 6px;
+            vertical-align: middle;
+        }
+        .sum-item {
+            font-weight: 700;
+        }
+        .circle-help {
+            margin-top: 10px;
+            font-size: 19px;
+            color: var(--muted);
+        }
+        .timer-wrap {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 8px;
+        }
+        .timer-icon {
+            width: 38px;
+            height: 38px;
+            object-fit: contain;
+        }
+        .rules-box {
+            margin-bottom: 13px;
+            border: 1px dashed rgba(28, 43, 74, 0.3);
+            border-radius: 10px;
+            padding: 10px 13px;
+            background: rgba(255, 255, 255, 0.62);
+        }
+        .rules-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+            font-weight: 700;
+            font-size: 20px;
+        }
+        .rules-icon {
+            width: 26px;
+            height: 26px;
+            object-fit: contain;
+        }
+        .rules-list {
+            margin: 0;
+            padding-left: 19px;
+            color: #2a3c63;
+            font-size: 18px;
+        }
+        .stats-line {
+            margin: 0 0 10px;
+            color: var(--muted);
+            font-size: 19px;
+        }
+        @media (max-width: 900px) {
+            .game-shell {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+<main class="page">
+    <h1 class="title" th:text="'Puzzle #' + ${puzzle.id}"></h1>
+    <p class="stats-line">Cercles: C1=<span th:text="${constraint.circleSum1}"></span>,
+        C2=<span th:text="${constraint.circleSum2}"></span>,
+        C3=<span th:text="${constraint.circleSum3}"></span>,
+        C4=<span th:text="${constraint.circleSum4}"></span></p>
+
+    <p class="message message-error" th:if="${errorMessage}" th:text="${errorMessage}"></p>
+    <p class="message message-success" th:if="${successMessage}" th:text="${successMessage}"></p>
+
+    <form th:object="${gridForm}" method="post">
+        <input type="hidden" th:field="*{puzzleId}">
+        <input type="hidden" th:field="*{elapsedSeconds}" id="elapsedSeconds">
+
+        <section class="game-shell">
+            <article class="card game-panel">
+                <div class="rules-box">
+                    <div class="rules-header">
+                        <img class="rules-icon" th:src="@{/assets/howtoicon.png}" alt="Regles">
+                        <span>Regles rapides</span>
+                    </div>
+                    <ul class="rules-list">
+                        <li>Remplis la grille 3x3 avec les chiffres de 1 a 9, sans doublon.</li>
+                        <li>Chaque cercle doit respecter exactement la somme affichee.</li>
+                        <li>Chaque zone de couleur doit atteindre sa somme cible.</li>
+                    </ul>
+                </div>
+                <input type="hidden" th:field="*{cells[0]}">
+                <input type="hidden" th:field="*{cells[1]}">
+                <input type="hidden" th:field="*{cells[2]}">
+                <input type="hidden" th:field="*{cells[3]}">
+                <input type="hidden" th:field="*{cells[4]}">
+                <input type="hidden" th:field="*{cells[5]}">
+                <input type="hidden" th:field="*{cells[6]}">
+                <input type="hidden" th:field="*{cells[7]}">
+                <input type="hidden" th:field="*{cells[8]}">
+                <div class="puzzle-workspace">
+                    <div class="digit-palette" id="digitPalette">
+                        <button type="button" class="digit-btn" data-digit="1">1</button>
+                        <button type="button" class="digit-btn" data-digit="2">2</button>
+                        <button type="button" class="digit-btn" data-digit="3">3</button>
+                        <button type="button" class="digit-btn" data-digit="4">4</button>
+                        <button type="button" class="digit-btn" data-digit="5">5</button>
+                        <button type="button" class="digit-btn" data-digit="6">6</button>
+                        <button type="button" class="digit-btn" data-digit="7">7</button>
+                        <button type="button" class="digit-btn" data-digit="8">8</button>
+                        <button type="button" class="digit-btn" data-digit="9">9</button>
+                        <button type="button" class="clear-btn" id="clearCellBtn">Effacer case</button>
+                    </div>
+                    <div class="grid-wrapper" id="gridWrapper">
+                        <div class="circle-overlay-layer" id="circleOverlayLayer"></div>
+                        <table class="grid-table">
+                            <tr>
+                                <td class="grid-cell" data-cell-index="0"><div class="cell-value" id="cellDisplay0"></div></td>
+                                <td class="grid-cell" data-cell-index="1"><div class="cell-value" id="cellDisplay1"></div></td>
+                                <td class="grid-cell" data-cell-index="2"><div class="cell-value" id="cellDisplay2"></div></td>
+                            </tr>
+                            <tr>
+                                <td class="grid-cell" data-cell-index="3"><div class="cell-value" id="cellDisplay3"></div></td>
+                                <td class="grid-cell" data-cell-index="4"><div class="cell-value" id="cellDisplay4"></div></td>
+                                <td class="grid-cell" data-cell-index="5"><div class="cell-value" id="cellDisplay5"></div></td>
+                            </tr>
+                            <tr>
+                                <td class="grid-cell" data-cell-index="6"><div class="cell-value" id="cellDisplay6"></div></td>
+                                <td class="grid-cell" data-cell-index="7"><div class="cell-value" id="cellDisplay7"></div></td>
+                                <td class="grid-cell" data-cell-index="8"><div class="cell-value" id="cellDisplay8"></div></td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </article>
+
+            <aside class="card game-panel">
+                <h3 class="section-title">Sommes cibles par couleur</h3>
+                <ul id="colorTargetSumsList" class="legend"></ul>
+                <div class="timer-wrap">
+                    <img class="timer-icon" th:src="@{/assets/hourglass.png}" alt="Temps">
+                    <p class="circle-help" style="margin:0;">Temps ecoule: <span class="pill" id="timer"></span> sec</p>
+                </div>
+                <div class="btn-row">
+                    <button class="btn btn-warning" type="submit" th:formaction="@{/game/check}">Verifier</button>
+                    <button class="btn btn-success" type="submit" th:formaction="@{/game/save}">Sauvegarder</button>
+                    <button class="btn btn-danger" type="submit" th:formaction="@{/game/submit}">Terminer</button>
+                </div>
+                <p style="margin-top: 12px;"><a class="nav-link" th:href="@{/profile}">Retour profil</a></p>
+            </aside>
+        </section>
+    </form>
+</main>
+
+<script th:inline="javascript">
+    const colorZoneMap = JSON.parse(/*[[${constraint.colorZoneMap}]]*/ "{}");
+    const colorZoneTargetSums = JSON.parse(/*[[${constraint.colorZoneSumMap}]]*/ "{}");
+    const circleCellMap = JSON.parse(/*[[${constraint.circleCellMap}]]*/ "{}");
+    const circleTargetSums = {
+        C1: Number(/*[[${constraint.circleSum1}]]*/ 0),
+        C2: Number(/*[[${constraint.circleSum2}]]*/ 0),
+        C3: Number(/*[[${constraint.circleSum3}]]*/ 0),
+        C4: Number(/*[[${constraint.circleSum4}]]*/ 0)
+    };
+    const colorTargetSumsList = document.getElementById('colorTargetSumsList');
+    const gridWrapper = document.getElementById('gridWrapper');
+    const circleOverlayLayer = document.getElementById('circleOverlayLayer');
+    const cellElements = Array.from(document.querySelectorAll('.grid-cell'));
+    const digitButtons = Array.from(document.querySelectorAll('.digit-btn'));
+    const clearCellBtn = document.getElementById('clearCellBtn');
+    let selectedDigit = null;
+    let selectedCellIndex = null;
+
+    const zonePalette = {
+        RED: '#f9c0c0',
+        BLUE: '#c7dcff',
+        GREEN: '#c9f3c9',
+        YELLOW: '#fff4bd',
+        ORANGE: '#ffd6b3',
+        PURPLE: '#e1cdfb'
+    };
+
+    Object.entries(colorZoneMap).forEach(([color, indexes]) => {
+        const colorHex = zonePalette[color] || '#ececec';
+        indexes.forEach((idx) => {
+            const cell = document.querySelector(`td[data-cell-index="${idx}"]`);
+            if (cell) {
+                cell.style.backgroundColor = colorHex;
+            }
+        });
+    });
+
+    const colorValueNodes = {};
+    Object.entries(colorZoneTargetSums).forEach(([color, sum]) => {
+        const item = document.createElement('li');
+        item.className = 'sum-item';
+        const swatch = document.createElement('span');
+        swatch.className = 'color-swatch';
+        swatch.style.backgroundColor = zonePalette[color] || '#ececec';
+        const text = document.createElement('span');
+        text.id = `color-sum-${color}`;
+        text.innerText = `${color}: 0 / ${sum}`;
+        colorValueNodes[color] = text;
+        item.appendChild(swatch);
+        item.appendChild(text);
+        colorTargetSumsList.appendChild(item);
+    });
+
+    function readCellValue(index) {
+        const hiddenInput = document.getElementById(`cells${index}`);
+        const value = Number(hiddenInput?.value || 0);
+        return Number.isFinite(value) ? value : 0;
+    }
+
+    function setCellValue(index, valueOrNull) {
+        const hiddenInput = document.getElementById(`cells${index}`);
+        const display = document.getElementById(`cellDisplay${index}`);
+        if (!hiddenInput || !display) {
+            return;
+        }
+        if (valueOrNull == null) {
+            hiddenInput.value = '';
+            display.innerText = '';
+            return;
+        }
+        hiddenInput.value = String(valueOrNull);
+        display.innerText = String(valueOrNull);
+    }
+
+    function refreshGridDisplaysFromHiddenInputs() {
+        for (let i = 0; i < 9; i += 1) {
+            const value = readCellValue(i);
+            setCellValue(i, value > 0 ? value : null);
+        }
+    }
+
+    function colorForState(current, target) {
+        if (current === target) {
+            return '#1fa97a';
+        }
+        if (current > target) {
+            return '#db4f73';
+        }
+        return '#e2ac34';
+    }
+
+    function refreshColorSums() {
+        Object.entries(colorZoneMap).forEach(([color, indexes]) => {
+            const current = indexes.reduce((acc, index) => acc + readCellValue(index), 0);
+            const target = Number(colorZoneTargetSums[color] || 0);
+            const node = colorValueNodes[color];
+            if (!node) {
+                return;
+            }
+            node.innerText = `${color}: ${current} / ${target}`;
+            node.style.color = colorForState(current, target);
+        });
+    }
+
+    function drawSolutionCircles() {
+        circleOverlayLayer.innerHTML = '';
+        const wrapperRect = gridWrapper.getBoundingClientRect();
+
+        Object.entries(circleCellMap).forEach(([circleName, indexes]) => {
+            const centers = indexes.map((idx) => {
+                const cell = document.querySelector(`td[data-cell-index="${idx}"]`);
+                if (!cell) {
+                    return null;
+                }
+                const rect = cell.getBoundingClientRect();
+                return {
+                    x: rect.left - wrapperRect.left + (rect.width / 2),
+                    y: rect.top - wrapperRect.top + (rect.height / 2),
+                    w: rect.width,
+                    h: rect.height
+                };
+            }).filter(Boolean);
+
+            if (centers.length === 0) {
+                return;
+            }
+
+            const avgX = centers.reduce((acc, c) => acc + c.x, 0) / centers.length;
+            const avgY = centers.reduce((acc, c) => acc + c.y, 0) / centers.length;
+            const maxDistance = centers.reduce((max, c) => {
+                const d = Math.hypot(c.x - avgX, c.y - avgY);
+                return Math.max(max, d);
+            }, 0);
+            const baseSize = Math.max(centers[0].w, centers[0].h);
+            const radius = Math.min(25, maxDistance + (baseSize * 0.20));
+            const diameter = Math.min(50, radius * 2);
+
+            const circle = document.createElement('div');
+            circle.className = 'solution-circle';
+            circle.style.width = `${diameter}px`;
+            circle.style.height = `${diameter}px`;
+            circle.style.left = `${avgX - (diameter / 2)}px`;
+            circle.style.top = `${avgY - (diameter / 2)}px`;
+            const target = Number(circleTargetSums[circleName] ?? 0);
+            const current = indexes.reduce((acc, index) => acc + readCellValue(index), 0);
+            const stateColor = colorForState(current, target);
+            circle.style.backgroundColor = stateColor;
+            circle.style.borderColor = stateColor;
+            circle.innerText = `${current}/${target}`;
+            circleOverlayLayer.appendChild(circle);
+        });
+    }
+
+    function markSelectedCell(index) {
+        selectedCellIndex = index;
+        cellElements.forEach((cell) => {
+            const cellIndex = Number(cell.dataset.cellIndex);
+            cell.classList.toggle('active-cell', cellIndex === index);
+        });
+    }
+
+    function clearSelectedDigit() {
+        selectedDigit = null;
+        digitButtons.forEach((btn) => btn.classList.remove('selected-digit'));
+    }
+
+    cellElements.forEach((cell) => {
+        cell.addEventListener('click', () => {
+            const index = Number(cell.dataset.cellIndex);
+            markSelectedCell(index);
+            if (selectedDigit != null) {
+                setCellValue(index, selectedDigit);
+                refreshColorSums();
+                drawSolutionCircles();
+                clearSelectedDigit();
+            }
+        });
+    });
+
+    digitButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+            selectedDigit = Number(button.dataset.digit);
+            clearSelectedDigit();
+            selectedDigit = Number(button.dataset.digit);
+            button.classList.add('selected-digit');
+            if (selectedCellIndex != null) {
+                setCellValue(selectedCellIndex, selectedDigit);
+                refreshColorSums();
+                drawSolutionCircles();
+                clearSelectedDigit();
+            }
+        });
+    });
+
+    clearCellBtn.addEventListener('click', () => {
+        if (selectedCellIndex == null) {
+            return;
+        }
+        setCellValue(selectedCellIndex, null);
+        refreshColorSums();
+        drawSolutionCircles();
+    });
+    refreshGridDisplaysFromHiddenInputs();
+    refreshColorSums();
+    drawSolutionCircles();
+    window.addEventListener('resize', drawSolutionCircles);
+
+    let elapsed = Number(document.getElementById('elapsedSeconds').value || 0);
+    const timer = document.getElementById('timer');
+    timer.innerText = elapsed;
+    setInterval(() => {
+        elapsed += 1;
+        timer.innerText = elapsed;
+        document.getElementById('elapsedSeconds').value = elapsed;
+    }, 1000);
+</script>
+</body>
+</html>

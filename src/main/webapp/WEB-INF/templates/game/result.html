@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Resultat</title>
+    <link rel="stylesheet" th:href="@{/css/game-theme.css}">
+</head>
+<body>
+<main class="page">
+    <section class="card auth-card" style="max-width: 540px;">
+        <h1 class="title">Puzzle termine</h1>
+        <p>Temps: <span class="pill" th:text="${elapsedSeconds}"></span> sec</p>
+        <p>Score gagne: <span class="pill" th:text="${score}"></span></p>
+        <div class="btn-row">
+            <a class="btn" th:href="@{/profile}" style="display:inline-block;">Retour profil</a>
+        </div>
+    </section>
+</main>
+</body>
+</html>

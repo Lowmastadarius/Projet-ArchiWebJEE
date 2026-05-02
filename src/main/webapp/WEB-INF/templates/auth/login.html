@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Connexion - Suko</title>
+    <link rel="stylesheet" th:href="@{/css/game-theme.css}">
+</head>
+<body>
+<main class="page">
+    <section class="card auth-card">
+        <h1 class="title">Suko Puzzle</h1>
+        <p class="subtitle">Connecte-toi pour reprendre ta progression.</p>
+        <p class="message message-success" th:if="${param.registered}">Inscription reussie. Connectez-vous.</p>
+        <p class="message message-success" th:if="${param.logout}">Deconnexion effectuee.</p>
+        <p class="message message-error" th:if="${param.error}">Identifiants invalides.</p>
+        <form th:action="@{/auth/login}" method="post">
+            <div class="form-field">
+                <label>Nom d'utilisateur</label>
+                <input type="text" name="username">
+            </div>
+            <div class="form-field">
+                <label>Mot de passe</label>
+                <input type="password" name="password">
+            </div>
+            <button class="btn" type="submit">Se connecter</button>
+        </form>
+        <p class="muted">Nouveau joueur ? <a th:href="@{/auth/register}">Creer un compte</a></p>
+    </section>
+</main>
+</body>
+</html>

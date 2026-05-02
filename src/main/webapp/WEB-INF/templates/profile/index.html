@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Profil - Suko</title>
+    <link rel="stylesheet" th:href="@{/css/game-theme.css}">
+</head>
+<body>
+<main class="page">
+    <section class="card">
+        <h1 class="title">Bienvenue <span th:text="${user.username}"></span></h1>
+        <p>Score total: <span class="pill" th:text="${user.totalScore}"></span></p>
+    </section>
+
+    <section class="grid-2" style="margin-top: 16px;">
+        <article class="card">
+            <h2 class="section-title">Choisir un puzzle</h2>
+            <h3>Easy</h3>
+            <ul class="list-reset">
+                <li th:each="p : ${easyPuzzles}">
+                    <a th:href="@{'/game/' + ${p.id}}" th:text="'Puzzle #' + ${p.id}"></a>
+                </li>
+            </ul>
+            <h3>Medium</h3>
+            <ul class="list-reset">
+                <li th:each="p : ${mediumPuzzles}">
+                    <a th:href="@{'/game/' + ${p.id}}" th:text="'Puzzle #' + ${p.id}"></a>
+                </li>
+            </ul>
+            <h3>Hard</h3>
+            <ul class="list-reset">
+                <li th:each="p : ${hardPuzzles}">
+                    <a th:href="@{'/game/' + ${p.id}}" th:text="'Puzzle #' + ${p.id}"></a>
+                </li>
+            </ul>
+        </article>
+        <article class="card">
+            <h2 class="section-title">Dernieres parties</h2>
+            <ul class="list-reset">
+                <li th:each="a : ${attempts}">
+                    <span class="pill">+<span th:text="${a.scoreEarned}"></span> points</span>
+                </li>
+            </ul>
+        </article>
+    </section>
+
+    <form th:action="@{/logout}" method="post" style="margin-top: 16px;">
+        <button class="btn btn-danger" type="submit">Deconnexion</button>
+    </form>
+</main>
+</body>
+</html>
